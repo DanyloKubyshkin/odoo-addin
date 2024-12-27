@@ -6,11 +6,50 @@
       type="text/javascript"
       src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"
     ></script>
+    <style>
+      #statusMessage {
+        font-size: 16px;
+        margin-top: 20px;
+        color: green;
+      }
+
+      #loadingSpinner {
+        display: none;
+        margin-top: 20px;
+      }
+
+      #saveButton:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+
+      /* Styling for the loading spinner */
+      .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        animation: spin 1s linear infinite;
+        margin-left: 10px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
   </head>
 
   <body>
     <p>This add-in will send the document to your Odoo system.</p>
     <button id="saveButton">Save Document to Odoo</button>
+    <div id="loadingSpinner" class="spinner"></div>
+    <div id="statusMessage"></div>
 
     <script>
       Office.onReady((info) => {
@@ -20,14 +59,21 @@
       });
 
       async function saveDocumentToAPI() {
+        // Disable the button and show loading spinner
+        const saveButton = document.getElementById("saveButton");
+        const loadingSpinner = document.getElementById("loadingSpinner");
+        const statusMessage = document.getElementById("statusMessage");
+
+        saveButton.disabled = true;
+        loadingSpinner.style.display = "inline-block";
+        statusMessage.textContent = "Processing the document... Please wait.";
+
         try {
           // Run the Word API to get the document content as a .docx file (compressed)
           await Word.run(async (context) => {
             const documentBase64 = await context.document.getFileAsync(
               Word.FileType.Compressed
             );
-
-            // Convert the .docx content to Base64 string
             const base64File = documentBase64.value;
 
             // Create a FormData object to send the file
@@ -58,14 +104,21 @@
 
             // Handle the response
             if (response.ok) {
-              alert("Document saved successfully.");
+              statusMessage.textContent = "Document saved successfully.";
+              statusMessage.style.color = "green";
             } else {
-              alert(`Failed to save document. Status: ${response.status}`);
+              statusMessage.textContent = `Failed to save document. Status: ${response.status}`;
+              statusMessage.style.color = "red";
             }
           });
         } catch (error) {
           console.error("Error saving document:", error);
-          alert(`Error saving document: ${error.message}`);
+          statusMessage.textContent = `Error saving document: ${error.message}`;
+          statusMessage.style.color = "red";
+        } finally {
+          // Re-enable the button and hide the loading spinner
+          saveButton.disabled = false;
+          loadingSpinner.style.display = "none";
         }
       }
     </script>
