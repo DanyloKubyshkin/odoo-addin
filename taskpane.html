@@ -52,19 +52,10 @@
     <div id="statusMessage"></div>
 
     <script>
+      // Make sure the Office JavaScript API is ready
       Office.onReady((info) => {
-        console.log("Office add-in is ready"); // Debugging log
         if (info.host === Office.HostType.Word) {
-          console.log("Office host is Word"); // Debugging log
-          const saveButton = document.getElementById("saveButton");
-
-          // Check if the button exists before assigning the click event
-          if (saveButton) {
-            console.log("Button found. Assigning click event."); // Debugging log
-            saveButton.onclick = saveDocumentToAPI;
-          } else {
-            console.error("Save button not found!"); // Debugging log
-          }
+          document.getElementById("saveButton").onclick = saveDocumentToAPI;
         }
       });
 
@@ -74,18 +65,17 @@
         const loadingSpinner = document.getElementById("loadingSpinner");
         const statusMessage = document.getElementById("statusMessage");
 
-        console.log("Button clicked! Starting document save..."); // Debugging log
-
         saveButton.disabled = true;
         loadingSpinner.style.display = "inline-block";
         statusMessage.textContent = "Processing the document... Please wait.";
 
         try {
-          // Run the Word API to get the document content as a .docx file (compressed)
           await Word.run(async (context) => {
+            // Get the document content as a .docx file (instead of Compressed, use Word.FileType.Docx or Word.FileType.Pdf)
             const documentBase64 = await context.document.getFileAsync(
-              Word.FileType.Compressed
-            );
+              Word.FileType.Docx
+            ); // Change this line
+
             const base64File = documentBase64.value;
 
             // Create a FormData object to send the file
@@ -104,7 +94,7 @@
             );
             formData.append("file", blob, "document.docx");
 
-            // Prepare the API URL (this should be the correct endpoint for your system)
+            // Prepare the API URL
             const apiURL =
               "https://tabatabai-group-bis-detcom-staging-2023-06-12-10366806.dev.odoo.com/docx_save_button/save";
 
