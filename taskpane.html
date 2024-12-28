@@ -52,6 +52,24 @@
     <div id="statusMessage"></div>
 
     <script>
+      // Ensure Office.js has fully loaded before interacting with Word
+      Office.onReady(function (info) {
+        if (info.host === Office.HostType.Word) {
+          console.log("Office host is Word");
+
+          // Wait for the button to be clicked, then call the save function
+          const saveButton = document.getElementById("saveButton");
+
+          if (saveButton) {
+            console.log("Button found. Assigning click event.");
+            saveButton.onclick = saveDocumentToAPI;
+          } else {
+            console.error("Save button not found!");
+          }
+        }
+      });
+
+      // Function to save the document to the API
       async function saveDocumentToAPI() {
         const saveButton = document.getElementById("saveButton");
         const loadingSpinner = document.getElementById("loadingSpinner");
@@ -67,9 +85,8 @@
               "officeapps.live.com"
             );
 
-            // Handle Word Online scenario
+            // Word Online scenario: Export as HTML
             if (isOnline) {
-              // Export document as HTML (we can't use the .docx export in Word Online)
               const documentContent = context.document.body.getHtml();
               await context.sync();
               const htmlContent = documentContent.value;
@@ -80,13 +97,12 @@
 
               await sendFileToAPI(formData, statusMessage);
             } else {
-              // Handle Word Desktop scenario: Export as .docx file
+              // Word Desktop scenario: Export as .docx
               if (typeof Word.FileType === "undefined") {
                 throw new Error("Word.FileType is not defined.");
               }
 
-              // Export document as .docx file
-              const fileType = Word.FileType.Docx; // Always use .docx for Word Desktop
+              const fileType = Word.FileType.Docx;
               const documentBase64 = await context.document.getFileAsync(
                 fileType
               );
@@ -95,7 +111,6 @@
               const byteCharacters = atob(base64File);
               const byteArrays = [];
 
-              // Convert base64 string to byte array (needed for Blob creation)
               for (
                 let offset = 0;
                 offset < byteCharacters.length;
@@ -109,7 +124,6 @@
                 byteArrays.push(new Uint8Array(byteNumbers));
               }
 
-              // Create a Blob and append it to the FormData object
               const formData = new FormData();
               const blob = new Blob(byteArrays, {
                 type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
