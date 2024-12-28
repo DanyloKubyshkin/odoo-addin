@@ -82,11 +82,10 @@
         try {
           await Word.run(async (context) => {
             const isOnline =
-              window.location.href.includes("officeapps.live.com") ||
-              window.location.href.includes("onedrive.live.com");
+              Office.context.host === Office.HostType.Word &&
+              Office.context.platform === Office.PlatformType.OfficeOnline;
 
-            console.log("Current URL:", window.location.href);
-            console.log("Is Online: ", isOnline);
+            console.log("Is Online:", isOnline);
 
             // Word Online scenario: Export as HTML
             if (isOnline) {
