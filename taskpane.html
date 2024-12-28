@@ -52,82 +52,71 @@
     <div id="statusMessage"></div>
 
     <script>
-      Office.onReady((info) => {
-        console.log("Office add-in is ready"); // Debugging log
-        if (info.host === Office.HostType.Word) {
-          console.log("Office host is Word"); // Debugging log
-          const saveButton = document.getElementById("saveButton");
-
-          // Check if the button exists before assigning the click event
-          if (saveButton) {
-            console.log("Button found. Assigning click event."); // Debugging log
-            saveButton.onclick = saveDocumentToAPI;
-          } else {
-            console.error("Save button not found!"); // Debugging log
-          }
-        }
-      });
-
       async function saveDocumentToAPI() {
-        // Disable the button and show loading spinner
         const saveButton = document.getElementById("saveButton");
         const loadingSpinner = document.getElementById("loadingSpinner");
         const statusMessage = document.getElementById("statusMessage");
-
-        console.log("Button clicked! Starting document save..."); // Debugging log
 
         saveButton.disabled = true;
         loadingSpinner.style.display = "inline-block";
         statusMessage.textContent = "Processing the document... Please wait.";
 
         try {
-          // Run the Word API to get the document content as a .docx file (compressed)
           await Word.run(async (context) => {
-            if (typeof Word.FileType === "undefined") {
-              throw new Error("Word.FileType is not defined.");
-            }
-
-            // Use Word.FileType.Docx or Word.FileType.Pdf as fallback
-            const fileType = Word.FileType.Docx; // You can try other file types like Pdf
-            const documentBase64 = await context.document.getFileAsync(
-              fileType
+            const isOnline = window.location.href.includes(
+              "officeapps.live.com"
             );
 
-            const base64File = documentBase64.value;
+            // Handle Word Online scenario
+            if (isOnline) {
+              // Export document as HTML (we can't use the .docx export in Word Online)
+              const documentContent = context.document.body.getHtml();
+              await context.sync();
+              const htmlContent = documentContent.value;
 
-            // Create a FormData object to send the file
-            const formData = new FormData();
-            const blob = new Blob(
-              [
-                new Uint8Array(
-                  atob(base64File)
-                    .split("")
-                    .map((c) => c.charCodeAt(0))
-                ),
-              ],
-              {
-                type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-              }
-            );
-            formData.append("file", blob, "document.docx");
+              const blob = new Blob([htmlContent], { type: "text/html" });
+              const formData = new FormData();
+              formData.append("file", blob, "document.html");
 
-            // Prepare the API URL (this should be the correct endpoint for your system)
-            const apiURL =
-              "https://tabatabai-group-bis-detcom-staging-2023-06-12-10366806.dev.odoo.com/docx_save_button/save";
-
-            // Send the document as a file upload
-            const response = await fetch(apiURL, {
-              method: "POST",
-              body: formData,
-            });
-
-            // Handle the response
-            if (response.ok) {
-              statusMessage.textContent = "Document saved successfully.";
-              statusMessage.style.color = "green";
+              await sendFileToAPI(formData, statusMessage);
             } else {
-              statusMessage.textContent = `Failed to save document. Status: ${response.status}`;
-              statusMessage.style.color = "red";
+              // Handle Word Desktop scenario: Export as .docx file
+              if (typeof Word.FileType === "undefined") {
+                throw new Error("Word.FileType is not defined.");
+              }
+
+              // Export document as .docx file
+              const fileType = Word.FileType.Docx; // Always use .docx for Word Desktop
+              const documentBase64 = await context.document.getFileAsync(
+                fileType
+              );
+
+              const base64File = documentBase64.value;
+              const byteCharacters = atob(base64File);
+              const byteArrays = [];
+
+              // Convert base64 string to byte array (needed for Blob creation)
+              for (
+                let offset = 0;
+                offset < byteCharacters.length;
+                offset += 1024
+              ) {
+                const slice = byteCharacters.slice(offset, offset + 1024);
+                const byteNumbers = new Array(slice.length);
+                for (let i = 0; i < slice.length; i++) {
+                  byteNumbers[i] = slice.charCodeAt(i);
+                }
+                byteArrays.push(new Uint8Array(byteNumbers));
+              }
+
+              // Create a Blob and append it to the FormData object
+              const formData = new FormData();
+              const blob = new Blob(byteArrays, {
+                type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              });
+              formData.append("file", blob, "document.docx");
+
+              await sendFileToAPI(formData, statusMessage);
             }
           });
         } catch (error) {
@@ -135,9 +124,32 @@
           statusMessage.textContent = `Error saving document: ${error.message}`;
           statusMessage.style.color = "red";
         } finally {
-          // Re-enable the button and hide the loading spinner
           saveButton.disabled = false;
           loadingSpinner.style.display = "none";
+        }
+      }
+
+      async function sendFileToAPI(formData, statusMessage) {
+        const apiURL =
+          "https://tabatabai-group-bis-detcom-staging-2023-06-12-10366806.dev.odoo.com/docx_save_button/save";
+
+        try {
+          const response = await fetch(apiURL, {
+            method: "POST",
+            body: formData,
+          });
+
+          if (response.ok) {
+            statusMessage.textContent = "Document saved successfully.";
+            statusMessage.style.color = "green";
+          } else {
+            statusMessage.textContent = `Failed to save document. Status: ${response.status}`;
+            statusMessage.style.color = "red";
+          }
+        } catch (error) {
+          console.error("Error sending the file to API:", error);
+          statusMessage.textContent = `Error sending document: ${error.message}`;
+          statusMessage.style.color = "red";
         }
       }
     </script>
