@@ -85,6 +85,9 @@
               window.location.href.includes("officeapps.live.com") ||
               window.location.href.includes("onedrive.live.com");
 
+            console.log("Current URL:", window.location.href);
+            console.log("Is Online: ", isOnline);
+
             // Word Online scenario: Export as HTML
             if (isOnline) {
               const documentContent = context.document.body.getHtml();
