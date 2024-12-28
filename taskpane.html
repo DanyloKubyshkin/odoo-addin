@@ -53,8 +53,18 @@
 
     <script>
       Office.onReady((info) => {
+        console.log("Office add-in is ready"); // Debugging log
         if (info.host === Office.HostType.Word) {
-          document.getElementById("saveButton").onclick = saveDocumentToAPI;
+          console.log("Office host is Word"); // Debugging log
+          const saveButton = document.getElementById("saveButton");
+
+          // Check if the button exists before assigning the click event
+          if (saveButton) {
+            console.log("Button found. Assigning click event."); // Debugging log
+            saveButton.onclick = saveDocumentToAPI;
+          } else {
+            console.error("Save button not found!"); // Debugging log
+          }
         }
       });
 
@@ -63,6 +73,8 @@
         const saveButton = document.getElementById("saveButton");
         const loadingSpinner = document.getElementById("loadingSpinner");
         const statusMessage = document.getElementById("statusMessage");
+
+        console.log("Button clicked! Starting document save..."); // Debugging log
 
         saveButton.disabled = true;
         loadingSpinner.style.display = "inline-block";
