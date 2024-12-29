@@ -52,24 +52,16 @@
     <div id="statusMessage"></div>
 
     <script>
-      // Ensure Office.js has fully loaded before interacting with Word
       Office.onReady(function (info) {
         if (info.host === Office.HostType.Word) {
-          console.log("Office host is Word");
-
-          // Wait for the button to be clicked, then call the save function
           const saveButton = document.getElementById("saveButton");
 
           if (saveButton) {
-            console.log("Button found. Assigning click event.");
             saveButton.onclick = saveDocumentToAPI;
-          } else {
-            console.error("Save button not found!");
           }
         }
       });
 
-      // Function to save the document to the API
       async function saveDocumentToAPI() {
         const saveButton = document.getElementById("saveButton");
         const loadingSpinner = document.getElementById("loadingSpinner");
@@ -81,62 +73,42 @@
 
         try {
           await Word.run(async (context) => {
-            const isOnline =
-              Office.context.host === Office.HostType.Word &&
-              Office.context.platform === Office.PlatformType.OfficeOnline;
+            const fileType = Word.FileType.Docx;
+            const documentBase64 = await context.document.getFileAsync(
+              fileType
+            );
+            const base64File = documentBase64.value;
+            const byteCharacters = atob(base64File);
+            const byteArrays = [];
 
-            console.log("Is Online:", isOnline);
-
-            // Word Online scenario: Export as HTML
-            if (isOnline) {
-              const documentContent = context.document.body.getHtml();
-              await context.sync();
-              const htmlContent = documentContent.value;
-
-              const blob = new Blob([htmlContent], { type: "text/html" });
-              const formData = new FormData();
-              formData.append("file", blob, "document.html");
-
-              await sendFileToAPI(formData, statusMessage);
-            } else {
-              // Word Desktop scenario: Export as .docx
-              if (typeof Word.FileType === "undefined") {
-                throw new Error("Word.FileType is not defined.");
+            for (
+              let offset = 0;
+              offset < byteCharacters.length;
+              offset += 1024
+            ) {
+              const slice = byteCharacters.slice(offset, offset + 1024);
+              const byteNumbers = new Array(slice.length);
+              for (let i = 0; i < slice.length; i++) {
+                byteNumbers[i] = slice.charCodeAt(i);
               }
-
-              const fileType = Word.FileType.Docx;
-              const documentBase64 = await context.document.getFileAsync(
-                fileType
-              );
-
-              const base64File = documentBase64.value;
-              const byteCharacters = atob(base64File);
-              const byteArrays = [];
-
-              for (
-                let offset = 0;
-                offset < byteCharacters.length;
-                offset += 1024
-              ) {
-                const slice = byteCharacters.slice(offset, offset + 1024);
-                const byteNumbers = new Array(slice.length);
-                for (let i = 0; i < slice.length; i++) {
-                  byteNumbers[i] = slice.charCodeAt(i);
-                }
-                byteArrays.push(new Uint8Array(byteNumbers));
-              }
-
-              const formData = new FormData();
-              const blob = new Blob(byteArrays, {
-                type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-              });
-              formData.append("file", blob, "document.docx");
-
-              await sendFileToAPI(formData, statusMessage);
+              byteArrays.push(new Uint8Array(byteNumbers));
             }
+
+            const formData = new FormData();
+            const blob = new Blob(byteArrays, {
+              type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            });
+            formData.append("file", blob, "document.docx");
+
+            // Add the Office user email to the form data
+            const userEmail =
+              Office.context.mailbox?.userProfile?.emailAddress ||
+              "unknown@domain.com";
+            formData.append("email", userEmail);
+
+            await sendFileToAPI(formData, statusMessage);
           });
         } catch (error) {
-          console.error("Error saving document:", error);
           statusMessage.textContent = `Error saving document: ${error.message}`;
           statusMessage.style.color = "red";
         } finally {
@@ -146,8 +118,7 @@
       }
 
       async function sendFileToAPI(formData, statusMessage) {
-        const apiURL =
-          "https://tabatabai-group-bis-detcom-staging-2023-06-12-10366806.dev.odoo.com/docx_save_button/save";
+        const apiURL = "https://your-odoo-instance.com/docx_save_button/save";
 
         try {
           const response = await fetch(apiURL, {
@@ -163,7 +134,6 @@
             statusMessage.style.color = "red";
           }
         } catch (error) {
-          console.error("Error sending the file to API:", error);
           statusMessage.textContent = `Error sending document: ${error.message}`;
           statusMessage.style.color = "red";
         }
